@@ -10,8 +10,9 @@
     <!-- include only the Firebase features as you need -->
     <script defer src="/__/firebase/5.2.0/firebase-auth.js"></script>
     <script defer src="/__/firebase/5.2.0/firebase-database.js"></script>
-    <script defer src="/__/firebase/5.2.0/firebase-messaging.js"></script>
+    <!--  script defer src="/__/firebase/5.2.0/firebase-messaging.js"></script> -->
     <script defer src="/__/firebase/5.2.0/firebase-storage.js"></script>
+    <script defer src="/__/firebase/5.2.0/firebase-firestore.js"></script>
     <!-- initialize the SDK after all desired features are loaded -->
     <script defer src="/__/firebase/init.js"></script>
 
@@ -33,7 +34,7 @@
   <body>
     <div id="message">
       <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete</h1>
+      <h1>Firebase Hosting Setup Complete Dougbo</h1>
       <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
       <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
     </div>
@@ -51,11 +52,48 @@
         //
         // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
 
-        try {
-          let app = firebase.app();
-          let features = ['auth', 'database', 'messaging', 'storage'].filter(feature => typeof app[feature] === 'function');
-          document.getElementById('load').innerHTML = `Firebase SDK loaded with ${features.join(', ')}`;
-        } catch (e) {
+	      try {
+
+		      let app = firebase.app();
+		      let features = ['auth', 'database', 'messaging', 'storage'].filter(feature => typeof app[feature] === 'function');
+		      document.getElementById('load').innerHTML = `Firebase SDK loaded with ${features.join(', ')}`;
+		      // authenticate current user
+		      var provider = new firebase.auth.GoogleAuthProvider();
+		      alert('done loading');
+		      firebase.auth().signInWithPopup(provider).then(function(result) {
+			      // This gives you a Google Access Token. You can use it to access the Google API.
+			      var token = result.credential.accessToken;
+			      // The signed-in user info.
+			      var user = result.user;
+			      alert('success: '+user.email);
+
+			      // try to find user's record in db
+
+			      // Initialize Cloud Firestore through Firebase
+			      var db = firebase.firestore();
+			      db.collection("businesses").add({
+				      first: "doug",
+				      last: "orr",
+				      email: user.email
+			      })
+			      .then(function(docRef) {
+				      console.log("Document written with ID: ", docRef.id);
+			      })
+			      .catch(function(error) {
+				      console.error("Error adding document: ", error);
+			      });
+		      }).catch(function(error) {
+			      // Handle Errors here.
+			      var errorCode = error.code;
+			      var errorMessage = error.message;
+			      // The email of the user's account used.
+			      var email = error.email;
+			      // The firebase.auth.AuthCredential type that was used.
+			      var credential = error.credential;
+			      // ...
+			      alert('authentication failure: '+error.message);
+		      });
+	      } catch (e) {
           console.error(e);
           document.getElementById('load').innerHTML = 'Error loading the Firebase SDK, check the console.';
         }
