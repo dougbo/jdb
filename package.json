@@ -4,7 +4,8 @@
   "description": "easy firebase db for jennifer",
   "main": "index.js",
   "dependencies": {
-    "firebase": "^5.2.0"
+    "firebase": "^5.2.0",
+    "firebase-tools": "^3.19.1"
   },
   "devDependencies": {},
   "scripts": {
