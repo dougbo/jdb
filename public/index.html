@@ -24,7 +24,6 @@
       #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
       #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
       #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
       @media (max-width: 600px) {
         body, #message { margin-top: 0; background: white; box-shadow: none; }
         body { border-top: 16px solid #ffa100; }
@@ -32,13 +31,25 @@
     </style>
   </head>
   <body>
-    <div id="message">
-      <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete Dougbo</h1>
-      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
-      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
+    <!-- single user input -->
+    <form id="userForm" style="display:none"> 
+	    <span>First Name:</span><input type="text" alt="first name" id="firstName"><br> 
+	    <span>Last Name:</span><input type="text" id="lastName"><br> 
+	    <span>Email:</span>&nbsp;<span id="ownerEmail" readonly></span><br> 
+	    <span>Business Name:</span><input type="text" id="businessName"><br> 
+	    <span>Address Line 1:</span><input type="text" id="addressLine1"><br> 
+	    <span>Address Line 2:</span><input type="text" id="addressLine2"><br> 
+	    <span>City:<input type="text" id="city">&nbsp; 
+		    State:<input type="text" id="state"> 
+		    Zip:<input type="text" id="zip"> 
+	    </span><br> 
+	    <input type="submit">
+    </form>
+    <!-- table of businesses -->
+    <div id="admin" style="display:none">
+	    <table id="businessesTable">
+	    </table>
     </div>
-    <p id="load">Firebase SDK Loading&hellip;</p>
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
@@ -55,33 +66,100 @@
 	      try {
 
 		      let app = firebase.app();
-		      let features = ['auth', 'database', 'messaging', 'storage'].filter(feature => typeof app[feature] === 'function');
-		      document.getElementById('load').innerHTML = `Firebase SDK loaded with ${features.join(', ')}`;
 		      // authenticate current user
 		      var provider = new firebase.auth.GoogleAuthProvider();
-		      alert('done loading');
 		      firebase.auth().signInWithPopup(provider).then(function(result) {
 			      // This gives you a Google Access Token. You can use it to access the Google API.
 			      var token = result.credential.accessToken;
 			      // The signed-in user info.
 			      var user = result.user;
-			      alert('success: '+user.email);
+			      var uid = user.uid;
 
 			      // try to find user's record in db
 
 			      // Initialize Cloud Firestore through Firebase
 			      var db = firebase.firestore();
-			      db.collection("businesses").add({
-				      first: "doug",
-				      last: "orr",
-				      email: user.email
-			      })
-			      .then(function(docRef) {
-				      console.log("Document written with ID: ", docRef.id);
-			      })
-			      .catch(function(error) {
-				      console.error("Error adding document: ", error);
+
+			      // first turn on admin features
+			      let isAdmin = false; // db write only for admins; this flag turns on admin view
+			      let adminRef = db.collection("admins");
+			      adminRef.get().then(function(qs) {
+				      qs.forEach(function(doc) {
+					      if (doc.id == user.email) {
+						      alert("is admin!");
+						      isAdmin = true;
+						      document.getElementById('admin').style.display = 'block';
+					      }
+				      });
+				      let fields = ['firstName', 'lastName', 'ownerEmail', 'businessName', 
+					      'addressLine1', 'addressLine2',
+					      'city', 'state', 'zip'
+				      ];
+
+				      if (isAdmin) {
+					      let btable = document.getElementById('businessesTable');
+
+					      let businessesRef = db.collection("businesses");
+					      businessesRef.get().then(function(qs) {
+						      let tr = document.createElement('tr');
+						      fields.forEach(function(f) {
+							      let td = document.createElement('th');
+							      td.appendChild(document.createTextNode(f));
+							      tr.appendChild(td);
+						      })
+						      btable.append(tr);
+
+						      qs.forEach(function(business) {
+							      let tr = document.createElement('tr');
+							      let bdata = business.data();
+							      fields.forEach(function(f) {
+								      let td = document.createElement('td');
+								      td.appendChild(document.createTextNode(bdata[f]));
+								      tr.appendChild(td);
+							      });
+							      btable.appendChild(tr);
+						      });
+					      });
+				      } else {
+					      alert("not admin for real")
+					      let docRef = db.collection("businesses").doc(uid);
+					      docRef.get().then(function(doc) {
+						      let userForm = document.getElementById('userForm');
+						      userForm.style.display = 'block';
+
+						      if (doc.exists) {
+							      // populate form
+							      let data = doc.data();
+
+							      fields.forEach(function(f) {
+								      if (f in data) {
+									      userForm.elements.namedItem(f).value = data[f];
+								      }
+							      });
+						      } else {
+							      // doc.data() will be undefined in this case
+							      // create empty doc
+						      }
+						      // email is non-settable
+						      document.getElementById("ownerEmail").innerHTML = user.email;
+
+						      // update record on submit
+						      userForm.onsubmit = function() {
+							      var outData = {};
+							      fields.forEach(function(f) {
+								      outData[f] = userForm.elements.namedItem(f).value;
+							      });
+							      docRef.set(outData);
+							      return false;
+						      };
+					      }).catch(function(error) {
+						      console.log("Error getting document:", error);
+					      });
+				      }
+			      }).catch(function(error) {
+				      console.log("Error getting admin document:", error);
 			      });
+
 		      }).catch(function(error) {
 			      // Handle Errors here.
 			      var errorCode = error.code;
