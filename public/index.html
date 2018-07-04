@@ -32,10 +32,10 @@
   </head>
   <body>
     <!-- single user input -->
-    <form id="userForm" style="display:none"> 
+    <form id="userForm" action="#" style="display:none"> 
 	    <span>First Name:</span><input type="text" alt="first name" id="firstName"><br> 
 	    <span>Last Name:</span><input type="text" id="lastName"><br> 
-	    <span>Email:</span>&nbsp;<span id="ownerEmail" readonly></span><br> 
+	    <span>Email:</span>&nbsp;<input id="ownerEmail" readonly></span><br> 
 	    <span>Business Name:</span><input type="text" id="businessName"><br> 
 	    <span>Address Line 1:</span><input type="text" id="addressLine1"><br> 
 	    <span>Address Line 2:</span><input type="text" id="addressLine2"><br> 
@@ -80,78 +80,140 @@
 			      // Initialize Cloud Firestore through Firebase
 			      var db = firebase.firestore();
 
+			      let fields = ['firstName', 'lastName', 'ownerEmail', 'businessName', 
+				      'addressLine1', 'addressLine2',
+				      'city', 'state', 'zip'
+			      ];
+
+
+			      function editBusiness(docRef, form, data) {
+				      populateForm(form, data, docRef);
+			      }
+
+			      function deleteBusiness(uid) {
+				      alert("deleting "+uid);
+			      }
+
+			      function populateForm(form, data, docRef) {
+				      form.style.display = 'block';
+				      // populate form
+				      fields.forEach(function(f) {
+					      if (f in data) {
+						      alert("populate: "+f)
+						      form.elements.namedItem(f).value = data[f];
+					      }
+				      });
+
+				      // update record on submit
+				      form.onsubmit = function() {
+					      var outData = {};
+					      fields.forEach(function(f) {
+						      alert("submit: "+f)
+						      outData[f] = form.elements.namedItem(f).value;
+					      });
+					      docRef.set(outData);
+					      return false;
+				      };
+			      }
+
+			      function populateTable(btable, form) {
+				      btable.innerHTML = '';
+
+				      // populate a table with each row being a single business
+				      let businessesRef = db.collection("businesses");
+				      businessesRef.get().then(function(qs) {
+					      let tr = document.createElement('tr');
+
+					      // prepend a couple of control columns
+					      let td = document.createElement('th');
+					      td.appendChild(document.createTextNode("edit"));
+					      tr.appendChild(td);
+					      td = document.createElement('th');
+					      td.appendChild(document.createTextNode("del"));
+					      tr.appendChild(td);
+
+					      // headers for each column
+					      fields.forEach(function(f) {
+						      let td = document.createElement('th');
+						      td.appendChild(document.createTextNode(f));
+						      tr.appendChild(td);
+					      })
+					      btable.append(tr);
+
+					      // add each business as a row
+					      qs.forEach(function(business) {
+						      let tr = document.createElement('tr');
+						      let bdata = business.data();
+
+						      // add a control field for edit, delete
+						      let td = document.createElement('th');
+						      td.appendChild(document.createTextNode("E"));
+						      td.onclick = function () { return editBusiness(db.collection("businesses").doc(business.id), userForm, bdata) }
+						      tr.appendChild(td);
+						      td = document.createElement('th');
+						      td.appendChild(document.createTextNode("D"));
+						      td.onclick = function () { return deleteBusiness(business.id); }
+						      tr.appendChild(td);
+
+						      // add data for these businesses
+						      fields.forEach(function(f) {
+							      let td = document.createElement('td');
+							      td.appendChild(document.createTextNode(bdata[f]));
+							      tr.appendChild(td);
+						      });
+						      btable.appendChild(tr);
+					      });
+				      });
+			      }
+
+
+			      function saveForm(form, uid, newUid) {
+			      }
+
 			      // first turn on admin features
 			      let isAdmin = false; // db write only for admins; this flag turns on admin view
 			      let adminRef = db.collection("admins");
 			      adminRef.get().then(function(qs) {
 				      qs.forEach(function(doc) {
 					      if (doc.id == user.email) {
-						      alert("is admin!");
 						      isAdmin = true;
-						      document.getElementById('admin').style.display = 'block';
 					      }
 				      });
-				      let fields = ['firstName', 'lastName', 'ownerEmail', 'businessName', 
-					      'addressLine1', 'addressLine2',
-					      'city', 'state', 'zip'
-				      ];
-
+				      let userForm = document.getElementById('userForm');
 				      if (isAdmin) {
-					      let btable = document.getElementById('businessesTable');
+					      // display entire table of entries
+					      document.getElementById('admin').style.display = 'block';
+					      let bTable = document.getElementById('businessesTable');
+					      populateTable(bTable, userForm);
 
-					      let businessesRef = db.collection("businesses");
-					      businessesRef.get().then(function(qs) {
-						      let tr = document.createElement('tr');
-						      fields.forEach(function(f) {
-							      let td = document.createElement('th');
-							      td.appendChild(document.createTextNode(f));
-							      tr.appendChild(td);
-						      })
-						      btable.append(tr);
-
-						      qs.forEach(function(business) {
-							      let tr = document.createElement('tr');
-							      let bdata = business.data();
-							      fields.forEach(function(f) {
-								      let td = document.createElement('td');
-								      td.appendChild(document.createTextNode(bdata[f]));
-								      tr.appendChild(td);
-							      });
-							      btable.appendChild(tr);
-						      });
-					      });
 				      } else {
-					      alert("not admin for real")
+					      // is there an entry indexed by uid?
 					      let docRef = db.collection("businesses").doc(uid);
 					      docRef.get().then(function(doc) {
-						      let userForm = document.getElementById('userForm');
-						      userForm.style.display = 'block';
-
+						      let data = {}
 						      if (doc.exists) {
-							      // populate form
-							      let data = doc.data();
-
-							      fields.forEach(function(f) {
-								      if (f in data) {
-									      userForm.elements.namedItem(f).value = data[f];
-								      }
-							      });
+							      data = doc.data();
+							      alert("doc exists uid=>"+uid+" data: "+data);
+							      populateForm(userForm, data, docRef);
 						      } else {
-							      // doc.data() will be undefined in this case
-							      // create empty doc
-						      }
-						      // email is non-settable
-						      document.getElementById("ownerEmail").innerHTML = user.email;
-
-						      // update record on submit
-						      userForm.onsubmit = function() {
-							      var outData = {};
-							      fields.forEach(function(f) {
-								      outData[f] = userForm.elements.namedItem(f).value;
+							      alert("doc doesn't exist uid=>"+uid);
+							      // see if the information has been entered under email id
+							      let eDocRef = db.collection("businesses").doc(user.email);
+							      eDocRef.get().then(function(eDoc) {
+								      if (eDoc.exists) {
+									      // populate the form with this data -- we will
+									      // create the uid-based record on submit
+									      data = eDoc.data();
+									      alert("doc exists email=>"+user.email+" data: "+data);
+								      } else {
+									      alert("edoc doesn't exist "+user.email);
+								      }
+								      populateForm(userForm, data, docRef);
 							      });
-							      docRef.set(outData);
-							      return false;
-						      };
+							      // NOTE: must delete record or mark it for admin once
+							      // it has been adopted
+						      }
+							
 					      }).catch(function(error) {
 						      console.log("Error getting document:", error);
 					      });
