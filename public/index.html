@@ -28,23 +28,40 @@
         body, #message { margin-top: 0; background: white; box-shadow: none; }
         body { border-top: 16px solid #ffa100; }
       }
+      th, td {
+	      padding: 15px;
+	      text-align: left;
+	      border-bottom: 1px solid #444;
+
+      }
+      #userForm span {
+	      font-weight: bold;
+      }
+      input[type=text], input[type=readonly] {
+	      border: none;
+	      border-bottom: 2px solid red;
+	      background: #ECEFF1; color: rgba(0,0,0,0,87);
+      }
     </style>
   </head>
   <body>
     <!-- single user input -->
     <form id="userForm" action="#" style="display:none"> 
-	    <span>First Name:</span><input type="text" alt="first name" id="firstName"><br> 
-	    <span>Last Name:</span><input type="text" id="lastName"><br> 
-	    <span>Email:</span>&nbsp;<input id="ownerEmail" readonly></span><br> 
-	    <span>Business Name:</span><input type="text" id="businessName"><br> 
-	    <span>Address Line 1:</span><input type="text" id="addressLine1"><br> 
-	    <span>Address Line 2:</span><input type="text" id="addressLine2"><br> 
-	    <span>City:<input type="text" id="city">&nbsp; 
-		    State:<input type="text" id="state"> 
-		    Zip:<input type="text" id="zip"> 
+	    <span>First Name:</span>&nbsp;<input type="text" alt="first name" id="firstName"><br> 
+	    <span>Last Name:</span>&nbsp;<input type="text" id="lastName"><br> 
+	    <span>Email:</span>&nbsp;<input type="text" id="ownerEmail" readonly></span><br> 
+	    <span>Business Name:</span>&nbsp;<input type="text" id="businessName"><br> 
+	    <span>Address Line 1:</span>&nbsp;<input type="text" id="addressLine1"><br> 
+	    <span>Address Line 2:</span>&nbsp;<input type="text" id="addressLine2"><br> 
+	    <span>City:&nbsp;<input type="text" id="city">&nbsp; 
+		    State:&nbsp;<input type="text" id="state"> 
+		    Zip:&nbsp;<input type="text" id="zip"> 
 	    </span><br> 
-	    <input type="submit">
+	    <span>Company Website</span>&nbsp;<input type="text" id="website"><br> 
+	    <input type="submit" value="Done">
     </form>
+    <br>
+    <br>
     <!-- table of businesses -->
     <div id="admin" style="display:none">
 	    <table id="businessesTable">
@@ -80,26 +97,34 @@
 			      // Initialize Cloud Firestore through Firebase
 			      var db = firebase.firestore();
 
-			      let fields = ['firstName', 'lastName', 'ownerEmail', 'businessName', 
-				      'addressLine1', 'addressLine2',
-				      'city', 'state', 'zip'
-			      ];
+			      let fields = {"firstName": "First Name", 
+				      "lastName": "Last Name", 
+				      "ownerEmail": "Email", 
+				      "businessName": "Company Name", 
+				      "addressLine1": "Address Line 1", 
+				      "addressLine2": "Address Line 2",
+				      "city": "City", 
+				      "state": "State", 
+				      "zip": "Zip",
+				      "website": "website", 
+			      };
 
 
-			      function editBusiness(docRef, form, data) {
-				      populateForm(form, data, docRef);
+			      // editBusiness: populate form and save data for a given business
+			      function editBusiness(docRef, form, data, btable) {
+				      populateForm(form, data, docRef, btable);
 			      }
 
 			      function deleteBusiness(uid) {
 				      alert("deleting "+uid);
 			      }
 
-			      function populateForm(form, data, docRef) {
+			      // create a form that will update the data from the given doc ref
+			      function populateForm(form, data, docRef, btable) {
 				      form.style.display = 'block';
 				      // populate form
-				      fields.forEach(function(f) {
+				      Object.keys(fields).forEach(function(f) {
 					      if (f in data) {
-						      alert("populate: "+f)
 						      form.elements.namedItem(f).value = data[f];
 					      }
 				      });
@@ -107,11 +132,17 @@
 				      // update record on submit
 				      form.onsubmit = function() {
 					      var outData = {};
-					      fields.forEach(function(f) {
-						      alert("submit: "+f)
+					      Object.keys(fields).forEach(function(f) {
 						      outData[f] = form.elements.namedItem(f).value;
 					      });
 					      docRef.set(outData);
+
+					      // redraw table
+					      form.style.display = 'none';
+					      if (isAdmin) {
+						      populateTable(btable, form);
+					      }
+							
 					      return false;
 				      };
 			      }
@@ -126,16 +157,16 @@
 
 					      // prepend a couple of control columns
 					      let td = document.createElement('th');
-					      td.appendChild(document.createTextNode("edit"));
+					      td.appendChild(document.createTextNode(""));
 					      tr.appendChild(td);
 					      td = document.createElement('th');
-					      td.appendChild(document.createTextNode("del"));
+					      td.appendChild(document.createTextNode(""));
 					      tr.appendChild(td);
 
 					      // headers for each column
-					      fields.forEach(function(f) {
+					      Object.keys(fields).forEach(function(f) {
 						      let td = document.createElement('th');
-						      td.appendChild(document.createTextNode(f));
+						      td.appendChild(document.createTextNode(fields[f]));
 						      tr.appendChild(td);
 					      })
 					      btable.append(tr);
@@ -148,7 +179,7 @@
 						      // add a control field for edit, delete
 						      let td = document.createElement('th');
 						      td.appendChild(document.createTextNode("E"));
-						      td.onclick = function () { return editBusiness(db.collection("businesses").doc(business.id), userForm, bdata) }
+						      td.onclick = function () { return editBusiness(db.collection("businesses").doc(business.id), userForm, bdata, btable) }
 						      tr.appendChild(td);
 						      td = document.createElement('th');
 						      td.appendChild(document.createTextNode("D"));
@@ -156,7 +187,7 @@
 						      tr.appendChild(td);
 
 						      // add data for these businesses
-						      fields.forEach(function(f) {
+						      Object.keys(fields).forEach(function(f) {
 							      let td = document.createElement('td');
 							      td.appendChild(document.createTextNode(bdata[f]));
 							      tr.appendChild(td);
@@ -180,12 +211,11 @@
 					      }
 				      });
 				      let userForm = document.getElementById('userForm');
+				      let bTable = document.getElementById('businessesTable');
 				      if (isAdmin) {
 					      // display entire table of entries
 					      document.getElementById('admin').style.display = 'block';
-					      let bTable = document.getElementById('businessesTable');
 					      populateTable(bTable, userForm);
-
 				      } else {
 					      // is there an entry indexed by uid?
 					      let docRef = db.collection("businesses").doc(uid);
@@ -193,10 +223,8 @@
 						      let data = {}
 						      if (doc.exists) {
 							      data = doc.data();
-							      alert("doc exists uid=>"+uid+" data: "+data);
-							      populateForm(userForm, data, docRef);
+							      populateForm(userForm, data, docRef, bTable);
 						      } else {
-							      alert("doc doesn't exist uid=>"+uid);
 							      // see if the information has been entered under email id
 							      let eDocRef = db.collection("businesses").doc(user.email);
 							      eDocRef.get().then(function(eDoc) {
@@ -208,7 +236,7 @@
 								      } else {
 									      alert("edoc doesn't exist "+user.email);
 								      }
-								      populateForm(userForm, data, docRef);
+								      populateForm(userForm, data, docRef, bTable);
 							      });
 							      // NOTE: must delete record or mark it for admin once
 							      // it has been adopted
